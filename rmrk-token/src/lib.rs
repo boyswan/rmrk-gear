@@ -1,33 +1,32 @@
 #![no_std]
 
+// use gear_lib::non_fungible_token::{io::NFTTransfer, nft_core::*, state::*, token::*};
+// use gear_lib_derive::{NFTCore, NFTMetaState, NFTStateKeeper};
 use gstd::{debug, msg, prelude::*, prog::ProgramGenerator, ActorId};
+use nft_io::InitNFT;
 use resource_io::{InitResource, ResourceAction, ResourceEvent};
 use rmrk_io::*;
 use types::primitives::{BaseId, CollectionAndToken, PartId, TokenId};
-mod burn;
 mod checks;
-mod children;
 mod equippable;
 mod messages;
-mod transfer;
-use messages::*;
 mod mint;
 mod multiresource;
-use multiresource::*;
+mod nesting;
 mod utils;
 use hashbrown::{HashMap, HashSet};
+use messages::*;
+use multiresource::*;
+use nesting::Nesting;
 
 #[derive(Debug, Default)]
 struct RMRKToken {
+    admin: ActorId,
     name: String,
     symbol: String,
-    admin: ActorId,
-    token_approvals: HashMap<TokenId, HashSet<ActorId>>,
+    nft_id: ActorId,
     rmrk_owners: HashMap<TokenId, RMRKOwner>,
-    pending_children: HashMap<TokenId, HashSet<CollectionAndToken>>,
-    accepted_children: HashMap<TokenId, HashSet<CollectionAndToken>>,
-    children_status: HashMap<CollectionAndToken, ChildStatus>,
-    balances: HashMap<ActorId, TokenId>,
+    nesting: Nesting,
     multiresource: MultiResource,
     resource_id: ActorId,
     equipped_tokens: HashSet<TokenId>,
@@ -62,8 +61,6 @@ unsafe extern "C" fn init() {
     let config: InitRMRK = msg::load().expect("Unable to decode InitRMRK");
 
     let mut rmrk = RMRKToken {
-        name: config.name,
-        symbol: config.symbol,
         admin: msg::source(),
         ..RMRKToken::default()
     };
@@ -80,6 +77,23 @@ unsafe extern "C" fn init() {
         rmrk.resource_id = resource_id;
         debug!("PROGRAM RESOURCE ID {:?}", resource_id);
         msg::reply(RMRKEvent::ResourceInited { resource_id }, 0).unwrap();
+    }
+
+    if let Some(nft_hash) = config.nft_hash {
+        let (_message_id, nft_id) = ProgramGenerator::create_program(
+            nft_hash.into(),
+            InitNFT {
+                name: config.name,
+                symbol: config.symbol,
+                base_uri: "".to_string(),
+                royalties: None,
+            }
+            .encode(),
+            0,
+        )
+        .expect("Error in creating program");
+        rmrk.nft_id = nft_id;
+        debug!("PROGRAM NFT ID {:?}", nft_id);
     }
     RMRK = Some(rmrk);
 }
@@ -101,13 +115,6 @@ async unsafe fn main() {
             root_owner,
             token_id,
         } => rmrk.mint_to_root_owner(&root_owner, token_id),
-        RMRKAction::Transfer { to, token_id } => rmrk.transfer(&to, token_id).await,
-        RMRKAction::TransferToNft {
-            to,
-            destination_id,
-            token_id,
-        } => rmrk.transfer_to_nft(&to, destination_id, token_id).await,
-        RMRKAction::Approve { to, token_id } => rmrk.approve(&to, token_id).await,
         RMRKAction::AddChild {
             parent_token_id,
             child_token_id,
@@ -148,15 +155,6 @@ async unsafe fn main() {
             rmrk.remove_child(parent_token_id, child_contract_id, child_token_id)
                 .await
         }
-        RMRKAction::BurnChild {
-            parent_token_id,
-            child_token_id,
-        } => rmrk.burn_child(parent_token_id, child_token_id),
-        RMRKAction::BurnFromParent {
-            child_token_id,
-            root_owner,
-        } => rmrk.burn_from_parent(child_token_id, &root_owner).await,
-        RMRKAction::Burn(token_id) => rmrk.burn(token_id).await,
         RMRKAction::RootOwner(token_id) => rmrk.root_owner(token_id).await,
         RMRKAction::AddResourceEntry {
             resource_id,

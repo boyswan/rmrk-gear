@@ -20,12 +20,9 @@ pub struct RMRKState {
     pub name: String,
     pub symbol: String,
     pub admin: ActorId,
-    pub token_approvals: Vec<(TokenId, Vec<ActorId>)>,
-    pub rmrk_owners: Vec<(TokenId, RMRKOwner)>,
     pub pending_children: Vec<(TokenId, Vec<CollectionAndToken>)>,
     pub accepted_children: Vec<(TokenId, Vec<CollectionAndToken>)>,
     pub children_status: Vec<(CollectionAndToken, ChildStatus)>,
-    pub balances: Vec<(ActorId, TokenId)>,
     pub multiresource: MultiResourceState,
     pub resource_id: ActorId,
     pub equipped_tokens: Vec<TokenId>,
@@ -51,6 +48,7 @@ pub struct InitRMRK {
     pub symbol: String,
     pub resource_name: String,
     pub resource_hash: Option<[u8; 32]>,
+    pub nft_hash: Option<[u8; 32]>,
 }
 
 #[derive(Debug, Clone, Encode, Decode, TypeInfo, Copy, Eq, PartialEq)]
@@ -170,91 +168,6 @@ pub enum RMRKAction {
         child_token_id: TokenId,
     },
 
-    /// Burns RMRK token.
-    /// It recursively burn all the children NFTs.
-    /// It checks whether the token is a child of another token.
-    /// If so, it sends a message to the parent NFT  to remove the child.
-    ///
-    /// # Requirements:
-    /// * The `msg::source()` must be the root owner of the token.
-    ///
-    /// # Arguments:
-    /// * `token_id`: is the tokenId of the burnt token.
-    ///
-    /// On success replies [`RMRKEvent::Transfer`].
-    Burn(TokenId),
-
-    /// Burns RMRK tokens. It must be called from the RMRK parent contract when the root owner removes or rejects child NFTs.
-    /// The input argument is an `BTreeSet<TokenId>` since a parent contract can have multiple children that must be burnt.
-    /// It also recursively send messages [`RMRKAction::BurnFromParent`] to children of burnt tokens if any.
-    ///
-    /// # Requirements:
-    /// * The `msg::source()` must be RMRK parent contract.
-    /// * All tokens in `BTreeSet<TokenId>` must exist.
-    ///
-    /// # Arguments:
-    /// * `token_ids`: is the tokenIds of the burnt tokens.
-    ///
-    /// On success replies [`RMRKEvent::TokensBurnt`].
-    BurnFromParent {
-        child_token_id: TokenId,
-        root_owner: ActorId,
-    },
-
-    /// Burns a child of NFT.
-    /// That function must be called from the child RMRK contract during `transfer`, `transfer_to_nft` and `burn` functions.
-    ///
-    /// # Requirements:
-    /// * The `msg::source()` must be a child RMRK contract.
-    /// * The indicated child must exist the children list of `parent_token_id`.
-    ///
-    /// # Arguments:
-    /// * `parent_token_id`: is the tokenId of the parent NFT.
-    /// * `child_token_id`: is the tokenId of the child instance.
-    ///
-    /// On success replies [`RMRKEvent::ChildBurnt`].
-    BurnChild {
-        parent_token_id: TokenId,
-        child_token_id: TokenId,
-    },
-
-    /// Transfers NFT to another account.
-    /// If the previous owner is another RMRK contract, it sends the message [`RMRKAction::BurnChild`] to the parent conract.
-    ///
-    /// # Requirements:
-    /// * The `token_id` must exist.
-    /// * The `msg::source()` must be approved or owner of the token.
-    /// * The `to` address should be a non-zero address.
-    ///
-    /// # Arguments:
-    /// * `to`: is the receiving address.
-    /// * `token_id`: is the tokenId of the transfered token.
-    ///
-    /// On success replies [`RMRKEvent::ChildBurnt`].
-    Transfer {
-        to: ActorId,
-        token_id: TokenId,
-    },
-
-    /// Transfers NFT to another NFT.
-    ///
-    /// # Requirements:
-    /// * The `token_id` must exist.
-    /// * The `msg::source()` must be approved or root owner of the token.
-    /// * The `to` address should be a non-zero address
-    ///
-    /// # Arguments:
-    /// * `to`: is the address of new parent RMRK contract.
-    /// * `destination_id: is the tokenId of the parent RMRK token.
-    /// * `token_id`: is the tokenId of the transfered token.
-    ///
-    /// On success replies [`RMRKEvent::TransferToNft`].
-    TransferToNft {
-        to: ActorId,
-        token_id: TokenId,
-        destination_id: TokenId,
-    },
-
     /// That message is designed to be sent from another RMRK contracts
     /// when root owner transfers his child to another parent token within one contract.
     /// If root owner transfers child token from NFT to another his NFT
@@ -279,23 +192,6 @@ pub enum RMRKAction {
         child_token_id: TokenId,
     },
     RootOwner(TokenId),
-
-    /// Approves an account to transfer NFT.
-    ///
-    /// # Requirements:
-    /// * The `token_id` must exist.
-    /// * The `msg::source()` must be approved or root owner of the token.
-    /// * The `to` address must be a non-zero address
-    ///
-    /// # Arguments:
-    /// * `to`: is the address of approved account.
-    /// * `token_id`: is the tokenId of the token.
-    ///
-    /// On success replies [`RMRKEvent::Approval`].
-    Approve {
-        to: ActorId,
-        token_id: TokenId,
-    },
 
     /// That function is designed to be called from another RMRK contracts
     /// when root owner transfers his child NFT to another his NFT in another contract.

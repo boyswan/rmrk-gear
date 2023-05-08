@@ -84,7 +84,7 @@ impl RMRKToken {
     ) {
         let child_token = (msg::source(), child_token_id);
         // check that token has the indicated child in the accepted child array
-        if let Some(accepted_children) = self.accepted_children.get(&token_id) {
+        if let Some(accepted_children) = self.nesting.accepted_children.get(&token_id) {
             assert!(
                 accepted_children.contains(&child_token),
                 "That token is not in the accepted list"

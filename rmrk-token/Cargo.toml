@@ -9,6 +9,7 @@ authors = ["Gear Technologies"]
 gstd = { git = "https://github.com/gear-tech/gear.git", features = ["debug"], rev = "5c685d0f15c412ab6ee019ceaf7ce084426dfb68" }
 codec = { package = "parity-scale-codec", version = "3.4", default-features = false, features = ["derive", "full"] }
 rmrk-io = { path = "io" }
+nft-io = { path = "../nft/io" }
 resource-io = { path = "../resource/io" }
 base-io = { path = "../base/io" }
 types = { path = "../types/" }

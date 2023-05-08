@@ -1,6 +1,6 @@
 use crate::*;
 use gstd::{msg, ActorId};
-
+use nft_io::{NFTAction, NFTEvent};
 impl RMRKToken {
     /// Mints token that will belong to another token in another RMRK contract.
     ///
@@ -29,7 +29,7 @@ impl RMRKToken {
         // find the root owner
         let root_owner = get_root_owner(parent_id, parent_token_id).await;
 
-        self.internal_mint(&root_owner, token_id, parent_id, Some(parent_token_id));
+        mint_nft(self.nft_id, &root_owner, token_id, None);
 
         msg::reply(
             RMRKEvent::MintToNft {
@@ -58,7 +58,7 @@ impl RMRKToken {
         // check that token does not exist
         self.assert_token_exists(token_id);
 
-        self.internal_mint(root_owner, token_id, root_owner, None);
+        mint_nft(self.nft_id, root_owner, token_id, None);
 
         msg::reply(
             RMRKEvent::MintToRootOwner {
@@ -70,33 +70,52 @@ impl RMRKToken {
         .expect("Error in reply [RMRKEvent::MintToRootOwner]");
     }
 
-    pub fn internal_mint(
-        &mut self,
-        root_owner: &ActorId,
-        token_id: TokenId,
-        parent_id: &ActorId,
-        parent_token_id: Option<TokenId>,
-    ) {
-        self.increase_balance(root_owner);
-        self.rmrk_owners.insert(
-            token_id,
-            RMRKOwner {
-                token_id: parent_token_id,
-                owner_id: *parent_id,
-            },
-        );
-    }
+    // pub async fn gnft_mint(
+    //     &mut self,
+    //     root_owner: &ActorId,
+    //     token_id: TokenId,
+    //     parent_id: &ActorId,
+    //     parent_token_id: Option<TokenId>,
+    // ) {
+    //     let  f =  msg::send_for_reply_as::<_, NFTEvent>(
+    //         *self.nft_id,
+    //         NFTAction::Mint{ to, token_id, token_metadata: Default::default() },
+    //         0,
+    //     )
+    // .expect(
+    //     "Error in sending async message `[ResourceAction::AddResourceEntry]` to resource contract",
+    // )
+    // .await
+    // .expect("Error in async message `[ResourceAction::AddResourceEntry]`");
+    // }
 
-    pub fn increase_balance(&mut self, account: &ActorId) {
-        self.balances
-            .entry(*account)
-            .and_modify(|balance| *balance += 1.into())
-            .or_insert_with(|| 1.into());
-    }
+    // pub fn internal_mint(
+    //     &mut self,
+    //     root_owner: &ActorId,
+    //     token_id: TokenId,
+    //     parent_id: &ActorId,
+    //     parent_token_id: Option<TokenId>,
+    // ) {
+    //     self.increase_balance(root_owner);
+    //     self.rmrk_owners.insert(
+    //         token_id,
+    //         RMRKOwner {
+    //             token_id: parent_token_id,
+    //             owner_id: *parent_id,
+    //         },
+    //     );
+    // }
 
-    pub fn decrease_balance(&mut self, account: &ActorId) {
-        self.balances
-            .entry(*account)
-            .and_modify(|balance| *balance -= 1.into());
-    }
+    // pub fn increase_balance(&mut self, account: &ActorId) {
+    //     self.balances
+    //         .entry(*account)
+    //         .and_modify(|balance| *balance += 1.into())
+    //         .or_insert_with(|| 1.into());
+    // }
+
+    // pub fn decrease_balance(&mut self, account: &ActorId) {
+    //     self.balances
+    //         .entry(*account)
+    //         .and_modify(|balance| *balance -= 1.into());
+    // }
 }

@@ -42,34 +42,21 @@ impl From<&RMRKToken> for RMRKState {
             name: rmrk.name.clone(),
             symbol: rmrk.symbol.clone(),
             admin: rmrk.admin,
-            token_approvals: rmrk
-                .token_approvals
-                .iter()
-                .map(|(key, value)| (*key, value.iter().copied().collect()))
-                .collect(),
-            rmrk_owners: rmrk
-                .rmrk_owners
-                .iter()
-                .map(|(key, value)| (*key, value.clone()))
-                .collect(),
             pending_children: rmrk
+                .nesting
                 .pending_children
                 .iter()
                 .map(|(key, value)| (*key, value.iter().copied().collect()))
                 .collect(),
             accepted_children: rmrk
+                .nesting
                 .accepted_children
                 .iter()
                 .map(|(key, value)| (*key, value.iter().copied().collect()))
                 .collect(),
             children_status: rmrk
+                .nesting
                 .children_status
-                .iter()
-                .map(|(key, value)| (*key, *value))
-                .collect(),
-            balances: rmrk
-                .balances
-                .clone()
                 .iter()
                 .map(|(key, value)| (*key, *value))
                 .collect(),

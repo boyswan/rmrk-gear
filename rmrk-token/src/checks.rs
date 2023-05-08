@@ -37,12 +37,13 @@ impl RMRKToken {
         }
     }
     pub fn assert_approved_or_owner(&self, token_id: TokenId, root_owner: &ActorId) {
-        if !matches!(
-            self.token_approvals.get(&token_id),
-            Some(approved_accounts) if approved_accounts.contains(&msg::source())
-        ) {
-            self.assert_owner(root_owner);
-        }
+        todo!();
+        // if !matches!(
+        //     self.token_approvals.get(&token_id),
+        //     Some(approved_accounts) if approved_accounts.contains(&msg::source())
+        // ) {
+        //     self.assert_owner(root_owner);
+        // }
     }
 
     pub fn assert_resource_exists_on_token(&self, token_id: TokenId, resource_id: ResourceId) {

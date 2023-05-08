@@ -1,6 +1,13 @@
 use crate::*;
 use gstd::msg;
 
+#[derive(Debug, Default)]
+pub struct Nesting {
+    pub pending_children: HashMap<TokenId, HashSet<CollectionAndToken>>,
+    pub accepted_children: HashMap<TokenId, HashSet<CollectionAndToken>>,
+    pub children_status: HashMap<CollectionAndToken, ChildStatus>,
+}
+
 impl RMRKToken {
     /// That message is designed to be send from another RMRK contracts
     /// when minting an NFT(child_token_id) to another NFT(parent_token_id).
@@ -22,7 +29,7 @@ impl RMRKToken {
         let child_token = (msg::source(), child_token_id);
 
         // check if the child already exists in pending array
-        if let Some(children) = self.pending_children.get(&parent_token_id) {
+        if let Some(children) = self.nesting.pending_children.get(&parent_token_id) {
             // if child already exists
             if children.contains(&child_token) {
                 panic!("RMRKCore: child already exists in pending array");
@@ -110,8 +117,8 @@ impl RMRKToken {
         // remove child from pending array
         self.internal_remove_child(parent_token_id, child_token, ChildStatus::Pending);
 
-        // send message to child contract to burn RMRK token from it
-        burn_from_parent(&child_contract_id, child_token_id, &root_owner).await;
+        // // send message to child contract to burn RMRK token from it
+        // burn_from_parent(&child_contract_id, child_token_id, &root_owner).await;
 
         msg::reply(
             RMRKEvent::RejectedChild {
@@ -150,8 +157,8 @@ impl RMRKToken {
         // remove child from accepted children array
         self.internal_remove_child(parent_token_id, child_token, ChildStatus::Accepted);
 
-        // send message to child contract to burn RMRK token from it
-        burn_from_parent(&child_contract_id, child_token_id, &root_owner).await;
+        // // send message to child contract to burn RMRK token from it
+        // burn_from_parent(&child_contract_id, child_token_id, &root_owner).await;
 
         msg::reply(
             RMRKEvent::RemovedChild {
@@ -189,6 +196,7 @@ impl RMRKToken {
 
         // check the status of the child
         let child_status = self
+            .nesting
             .children_status
             .get(&child_token)
             .expect("RMRK: The child does not exist");
@@ -269,6 +277,7 @@ impl RMRKToken {
     pub fn burn_child(&mut self, parent_token_id: TokenId, child_token_id: TokenId) {
         let child_token = (msg::source(), child_token_id);
         let child_status = self
+            .nesting
             .children_status
             .remove(&child_token)
             .expect("Child does not exist");
@@ -293,25 +302,29 @@ impl RMRKToken {
     ) {
         match child_status {
             ChildStatus::Pending => {
-                self.pending_children
+                self.nesting
+                    .pending_children
                     .entry(parent_token_id)
                     .and_modify(|children| {
                         children.insert(child_token);
                     })
                     .or_insert_with(|| HashSet::from([child_token]));
 
-                self.children_status
+                self.nesting
+                    .children_status
                     .insert(child_token, ChildStatus::Pending);
             }
             ChildStatus::Accepted => {
-                self.accepted_children
+                self.nesting
+                    .accepted_children
                     .entry(parent_token_id)
                     .and_modify(|children| {
                         children.insert(child_token);
                     })
                     .or_insert_with(|| HashSet::from([child_token]));
 
-                self.children_status
+                self.nesting
+                    .children_status
                     .insert(child_token, ChildStatus::Accepted);
             }
         }
@@ -323,10 +336,10 @@ impl RMRKToken {
         child_token: CollectionAndToken,
         child_status: ChildStatus,
     ) {
-        self.children_status.remove(&child_token);
+        self.nesting.children_status.remove(&child_token);
         match child_status {
             ChildStatus::Pending => {
-                if let Some(children) = self.pending_children.get_mut(&parent_token_id) {
+                if let Some(children) = self.nesting.pending_children.get_mut(&parent_token_id) {
                     if !children.remove(&child_token) {
                         panic!("RMRK: child does not exist in pending array or has already been accepted");
                     }
@@ -335,7 +348,7 @@ impl RMRKToken {
                 }
             }
             ChildStatus::Accepted => {
-                if let Some(children) = self.accepted_children.get_mut(&parent_token_id) {
+                if let Some(children) = self.nesting.accepted_children.get_mut(&parent_token_id) {
                     if children.contains(&child_token) {
                         children.remove(&child_token);
                     } else {

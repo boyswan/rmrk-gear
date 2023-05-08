@@ -1,8 +1,31 @@
 use crate::*;
 use base_io::*;
 use gstd::{exec, msg, ActorId};
+use nft_io::{NFTAction, NFTEvent, TokenMetadata};
 use resource_io::Resource;
 use types::primitives::{CollectionId, PartId, ResourceId, TokenId};
+
+pub async fn mint_nft(
+    nft_id: ActorId,
+    to: &ActorId,
+    token_id: TokenId,
+    token_metadata: Option<TokenMetadata>,
+) {
+    msg::send_for_reply_as::<_, NFTEvent>(
+        nft_id,
+        NFTAction::Mint {
+            to: *to,
+            token_id,
+            token_metadata,
+        },
+        0,
+    )
+    .expect(
+        "Error in sending async message `[ResourceAction::AddResourceEntry]` to resource contract",
+    )
+    .await
+    .expect("Error in async message `[ResourceAction::AddResourceEntry]`");
+}
 
 pub async fn get_root_owner(to: &ActorId, token_id: TokenId) -> ActorId {
     let response: RMRKEvent = msg::send_for_reply_as(*to, RMRKAction::RootOwner(token_id), 0)
@@ -35,41 +58,41 @@ pub async fn add_child(
     .expect("Error in message [RMRKAction::AddChild]");
 }
 
-pub async fn burn_from_parent(
-    child_contract_id: &ActorId,
-    child_token_id: TokenId,
-    root_owner: &ActorId,
-) {
-    msg::send_for_reply_as::<_, RMRKEvent>(
-        *child_contract_id,
-        RMRKAction::BurnFromParent {
-            child_token_id,
-            root_owner: *root_owner,
-        },
-        0,
-    )
-    .expect("Error in sending message [RMRKAction::BurnFromParent]")
-    .await
-    .expect("Error in message [RMRKAction::BurnFromParent]");
-}
+// pub async fn burn_from_parent(
+//     child_contract_id: &ActorId,
+//     child_token_id: TokenId,
+//     root_owner: &ActorId,
+// ) {
+//     msg::send_for_reply_as::<_, RMRKEvent>(
+//         *child_contract_id,
+//         RMRKAction::BurnFromParent {
+//             child_token_id,
+//             root_owner: *root_owner,
+//         },
+//         0,
+//     )
+//     .expect("Error in sending message [RMRKAction::BurnFromParent]")
+//     .await
+//     .expect("Error in message [RMRKAction::BurnFromParent]");
+// }
 
-pub async fn burn_child(
-    parent_contract_id: &ActorId,
-    parent_token_id: TokenId,
-    child_token_id: TokenId,
-) {
-    msg::send_for_reply_as::<_, RMRKEvent>(
-        *parent_contract_id,
-        RMRKAction::BurnChild {
-            parent_token_id,
-            child_token_id,
-        },
-        0,
-    )
-    .expect("Error in sending message [RMRKAction::BurnChild]")
-    .await
-    .expect("Error in message [RMRKAction::BurnChild]");
-}
+// pub async fn burn_child(
+//     parent_contract_id: &ActorId,
+//     parent_token_id: TokenId,
+//     child_token_id: TokenId,
+// ) {
+//     msg::send_for_reply_as::<_, RMRKEvent>(
+//         *parent_contract_id,
+//         RMRKAction::BurnChild {
+//             parent_token_id,
+//             child_token_id,
+//         },
+//         0,
+//     )
+//     .expect("Error in sending message [RMRKAction::BurnChild]")
+//     .await
+//     .expect("Error in message [RMRKAction::BurnChild]");
+// }
 
 pub async fn transfer_child(
     parent_contract_id: &ActorId,

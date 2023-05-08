@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "base",
+    "nft",
     "rmrk-token",
     "resource",
     "types",
